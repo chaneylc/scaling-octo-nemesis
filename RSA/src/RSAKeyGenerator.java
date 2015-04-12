@@ -29,40 +29,46 @@ public class RSAKeyGenerator {
 	private final static HashMap<BigInteger, ArrayList<BigInteger>> primes = 
 			new HashMap<BigInteger, ArrayList<BigInteger>>();
 	private final BigInteger TWO = BigInteger.ONE.add(BigInteger.ONE);
+	private final Key privateKey;
+	private final Key publicKey;
 	public RSAKeyGenerator(int numBitsInKey) {
 		assert numBitsInKey >= 1024;
 		final StringBuilder sb = new StringBuilder();
 	    final String lineSep = System.getProperty("line.separator");
-	    final ProbablePrime n = generateBigPrime(numBitsInKey);
-	    final Key[] keys = generateRSAKeyPair(n);
-	    assert keys.length == 2;
-	    assert keys[0].n.equals(n) && keys[1].n.equals(n);
-	    		
-	    sb.append(n);
+	    final ProbablePrime N = generateBigPrime(numBitsInKey);
+	    final Key[] K = generateRSAKeyPair(N);
+	    assert K.length == 2;
+	    assert K[0].n.equals(N.n) && K[1].n.equals(N.n);
+	    this.privateKey = K[0];
+	    this.publicKey = K[1];
+	    
+	    sb.append(N);
 		sb.append(lineSep);
-		sb.append(keys[0]);
+		sb.append(K[0]);
 		sb.append(lineSep);
-		sb.append(keys[1]);
+		sb.append(K[1]);
 		sb.append(lineSep);
 
 		System.out.println(sb);
 	}
-
+	public Key[] getK() {
+		return new Key[] {this.publicKey, this.privateKey};
+	}
 	private Key[] generateRSAKeyPair(ProbablePrime P) {
 		final Key privateKey, publicKey;
 		BigInteger e, d;
 		final BigInteger z = 
 				(P.p.subtract(BigInteger.ONE)).multiply(P.q.subtract(BigInteger.ONE)); // z = (q-1)(p-1)
 		do {
-			e = generateBigIntInclusive(P.n.shiftRight(1) ,P.n.subtract(BigInteger.ONE));
-		} while (e.gcd(z) != BigInteger.ONE);
+			e = generateBigIntInclusive(BigInteger.ONE, z);
+		} while (!e.gcd(z).equals(BigInteger.ONE));
 		assert e.compareTo(P.n) < 0;
 		
-		do {
-			d = generateBigIntInclusive(P.n.shiftRight(1), P.n.subtract(BigInteger.ONE));
-		} while (!e.multiply(d).mod(z).equals(BigInteger.ONE) ||
-				 d.equals(e));
+		d = e.modInverse(z);
+		assert e.multiply(d).mod(z).equals(BigInteger.ONE);
+		assert !d.equals(e);
 		
+		assert !d.equals(e);
 		privateKey = new Key(e, P.n);
 		publicKey = new Key(d, P.n);
 		return new Key[] {privateKey, publicKey};
@@ -108,7 +114,7 @@ public class RSAKeyGenerator {
 		BigInteger s = BigInteger.ZERO;
 		BigInteger d = m;
 		while (!testOdd(d)) {
-			d = d.shiftRight(1); //divide by factors of two 
+			d = d.shiftRight(1); //divide by factors of two maybe make this smaller
 			s = s.add(BigInteger.ONE);
 		}
 		//System.out.println("2^" + s.toString() + "*" + d.toString());
@@ -129,17 +135,17 @@ public class RSAKeyGenerator {
 			//}
 			if (testComposite(a, d, n, s, m)) {
 				RabinMillerCheck = false;
-				System.out.println("Is composite");
-				return TWO; //post assertion will catch this after generating primes
+				//System.out.println("Is composite");
+				break;
 			}
 		}
 		if (RabinMillerCheck) {
 			//System.out.println(n.bitLength());
 			assert n.bitLength() >= 512;
-			System.out.println("Probably is prime");
+			//System.out.println("Probably is prime");
 			return n;
 		}
-		System.out.println("Is composite");
+		assert false;
 		return TWO;
 	}
 	private BigInteger generateOddBigInt(final int bitLength) {
