@@ -1,3 +1,7 @@
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -9,6 +13,16 @@ final class ProbablePrime {
 		this.p = p;
 		this.n = n;
 		this.q = q;
+	}
+	public String toString() {
+		final StringBuilder sb = new StringBuilder();
+		final String lineSep = System.getProperty("line.separator");
+		sb.append(this.p);
+		sb.append(lineSep);
+		sb.append(lineSep);
+		sb.append(this.q);
+		sb.append(lineSep);
+		return sb.toString();
 	}
 }
 final class Key {
@@ -23,10 +37,15 @@ final class Key {
 	public BigInteger f() {
 		return this.f;
 	}
+	public String cipher(String m) {
+		final byte[] bytes = m.getBytes();
+		final BigInteger M = new BigInteger(bytes);
+		return M.modPow(this.f, this.n).toString();
+	}
 }
 
 public class RSAKeyGenerator {
-	private final static HashMap<BigInteger, ArrayList<BigInteger>> primes = 
+	private final static HashMap<BigInteger, ArrayList<BigInteger>> composites = 
 			new HashMap<BigInteger, ArrayList<BigInteger>>();
 	private final BigInteger TWO = BigInteger.ONE.add(BigInteger.ONE);
 	private final Key privateKey;
@@ -41,15 +60,17 @@ public class RSAKeyGenerator {
 	    assert K[0].n.equals(N.n) && K[1].n.equals(N.n);
 	    this.privateKey = K[0];
 	    this.publicKey = K[1];
-	    
-	    sb.append(N);
+	}
+	public String toString() {
+		final StringBuilder sb = new StringBuilder();
+		final String lineSep = System.getProperty("line.separator");
+		sb.append(this.privateKey.n);
 		sb.append(lineSep);
-		sb.append(K[0]);
+		sb.append(this.privateKey);
 		sb.append(lineSep);
-		sb.append(K[1]);
+		sb.append(this.publicKey);
 		sb.append(lineSep);
-
-		System.out.println(sb);
+		return sb.toString();
 	}
 	public Key[] getK() {
 		return new Key[] {this.publicKey, this.privateKey};
@@ -100,7 +121,8 @@ public class RSAKeyGenerator {
 		assert !p.equals(q);
 		
 		final ProbablePrime P = new ProbablePrime(n, p, q);
-
+		outputPQ(P);
+		
 		return P;
 	}
 	private BigInteger generatePrime(final int bitLength) {
@@ -124,7 +146,7 @@ public class RSAKeyGenerator {
 		//we can make this really small be choosing a reasonable k.
 		for (int k = 0; k < 400; k++) {
 			BigInteger a = generateBigIntInclusive(TWO, m);
-			while(primes.get(n).contains(a)) {
+			while(composites.get(n).contains(a)) {
 				a = generateBigIntInclusive(TWO, m);
 			}
 			addPrimeEntry(n, a);
@@ -145,14 +167,13 @@ public class RSAKeyGenerator {
 			//System.out.println("Probably is prime");
 			return n;
 		}
-		assert false;
 		return TWO;
 	}
 	private BigInteger generateOddBigInt(final int bitLength) {
 		final Random rnd = new Random();
 		BigInteger x = new BigInteger(bitLength, rnd);
 		while( !testOdd(x) || x.bitLength() < bitLength ||
-				primes.containsKey(x)) {	
+				composites.containsKey(x)) {	
 			// loop until we generate an odd;
 			// ensure that the bitLength is kept, sometimes rnd will generate somethign smaller
 			x = new BigInteger(bitLength, rnd); 
@@ -192,14 +213,25 @@ public class RSAKeyGenerator {
 		return false;
 	}
 	protected void addPrime(BigInteger n) {
-		primes.put(n, new ArrayList<BigInteger>());
+		composites.put(n, new ArrayList<BigInteger>());
 	}
 	protected void addPrimeEntry(BigInteger p, BigInteger a) {
-		primes.get(p).add(a);
+		composites.get(p).add(a);
 	}
 	private boolean testOdd(final BigInteger i) {
 		if (i.mod(TWO).equals(BigInteger.ZERO))	return false;
 		else return true;
+	}
+	public void outputPQ(ProbablePrime p) {
+		final File f = new File("./PandQ.txt");
+		final BufferedWriter bw;
+		try {
+			bw = new BufferedWriter(new FileWriter(f));
+			bw.write(p.toString());
+			bw.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} 
 	}
 	
 }
