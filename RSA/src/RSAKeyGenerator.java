@@ -77,7 +77,7 @@ public class RSAKeyGenerator {
 		final BigInteger z = 
 				(P.p.subtract(BigInteger.ONE)).multiply(P.q.subtract(BigInteger.ONE)); // z = (q-1)(p-1)
 		do {
-			e = generateBigIntInclusive(BigInteger.ONE, z.subtract(BigInteger.ONE)); //z/2 <= e <= z-1
+			e = generateBigIntInclusive(BigInteger.ONE, z.subtract(BigInteger.ONE)); //1 <= e <= z-1
 		} while (!e.gcd(z).equals(BigInteger.ONE));
 		assert e.compareTo(z) < 0;
 		
@@ -85,8 +85,8 @@ public class RSAKeyGenerator {
 		assert e.multiply(d).mod(z).equals(BigInteger.ONE);
 		assert !d.equals(e);
 		
-		privateKey = new Key(e, P.n);
-		publicKey = new Key(d, P.n);
+		privateKey = new Key(d, P.n);
+		publicKey = new Key(e, P.n);
 		return new Key[] {privateKey, publicKey};
 	}
 	private ProbablePrime generateBigPrime(final int bitLength) {

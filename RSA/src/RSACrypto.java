@@ -9,10 +9,10 @@ public class RSACrypto {
 		sb.append(K[0].n.toString(16));
 		sb.append(lineSep);
 		sb.append(lineSep);
-		sb.append(K[0].f.toString(16));
+		sb.append(K[1].f.toString(16)); //private key e
 		sb.append(lineSep);
 		sb.append(lineSep);
-		sb.append(K[1].f.toString(16));
+		sb.append(K[0].f.toString(16)); //public key d
 		sb.append(lineSep);
 		sb.append(lineSep);
 		System.out.println(sb);
