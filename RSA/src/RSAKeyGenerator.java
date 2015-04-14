@@ -37,10 +37,8 @@ final class Key {
 	public BigInteger f() {
 		return this.f;
 	}
-	public String cipher(String m) {
-		final byte[] bytes = m.getBytes();
-		final BigInteger M = new BigInteger(bytes);
-		return M.modPow(this.f, this.n).toString();
+	public String cipher(BigInteger M) {
+		return M.modPow(this.f, this.n).toString(16);
 	}
 }
 
@@ -52,8 +50,6 @@ public class RSAKeyGenerator {
 	private final Key publicKey;
 	public RSAKeyGenerator(int numBitsInKey) {
 		assert numBitsInKey >= 1024;
-		final StringBuilder sb = new StringBuilder();
-	    final String lineSep = System.getProperty("line.separator");
 	    final ProbablePrime N = generateBigPrime(numBitsInKey);
 	    final Key[] K = generateRSAKeyPair(N);
 	    assert K.length == 2;
@@ -81,15 +77,14 @@ public class RSAKeyGenerator {
 		final BigInteger z = 
 				(P.p.subtract(BigInteger.ONE)).multiply(P.q.subtract(BigInteger.ONE)); // z = (q-1)(p-1)
 		do {
-			e = generateBigIntInclusive(BigInteger.ONE, z);
+			e = generateBigIntInclusive(BigInteger.ONE, z.subtract(BigInteger.ONE)); //z/2 <= e <= z-1
 		} while (!e.gcd(z).equals(BigInteger.ONE));
-		assert e.compareTo(P.n) < 0;
+		assert e.compareTo(z) < 0;
 		
 		d = e.modInverse(z);
 		assert e.multiply(d).mod(z).equals(BigInteger.ONE);
 		assert !d.equals(e);
 		
-		assert !d.equals(e);
 		privateKey = new Key(e, P.n);
 		publicKey = new Key(d, P.n);
 		return new Key[] {privateKey, publicKey};
@@ -129,42 +124,38 @@ public class RSAKeyGenerator {
 		assert bitLength >= 512;	//assure our p q are at least 512 bits as to specification
 		final BigInteger n = generateOddBigInt(bitLength);
 		assert n.bitLength() >= 512;
-		
-		final BigInteger m = n.subtract(BigInteger.ONE);
-		
-		//represent m as 2^s * d
-		BigInteger s = BigInteger.ZERO;
-		BigInteger d = m;
-		while (!testOdd(d)) {
-			d = d.shiftRight(1); //divide by factors of two maybe make this smaller
-			s = s.add(BigInteger.ONE);
+				
+		// n - 1 = 2^k * m
+		final BigInteger o = n.subtract(BigInteger.ONE);
+		int k = 0;
+		BigInteger m = o.shiftRight(1);
+		while (!testOdd(m)) {
+			m = m.shiftRight(1);
 		}
-		//System.out.println("2^" + s.toString() + "*" + d.toString());
+		while (!o.equals(TWO.pow(k).multiply(m))) {
+			k = k + 1;
+		}
+		//System.out.println("2^" + k + "*" + m.toString());
 		boolean RabinMillerCheck = true;
-		//System.out.println("Predicted failures: " + possibleRMFailures);
 		//chance of failure is (1/4)^k where k is the number of rounds,
 		//we can make this really small be choosing a reasonable k.
-		for (int k = 0; k < 400; k++) {
-			BigInteger a = generateBigIntInclusive(TWO, m);
+		for (int s = 0; s < 4000; s++) { //Rabin Miller tests
+			BigInteger a = generateBigIntInclusive(BigInteger.ONE, o);
 			while(composites.get(n).contains(a)) {
-				a = generateBigIntInclusive(TWO, m);
+				a = generateBigIntInclusive(BigInteger.ONE, o);
 			}
 			addPrimeEntry(n, a);
-			//if (a.mod(TWO) == BigInteger.ZERO) {
-				//RabinMillerCheck = false; //simple check for evens
-				//System.out.println("Is Even");
-				//return TWO;
-			//}
-			if (testComposite(a, d, n, s, m)) {
-				RabinMillerCheck = false;
-				//System.out.println("Is composite");
+			final BigInteger b = a.modPow(m, n);
+			if (b.equals(BigInteger.ONE.mod(n))) {
+				RabinMillerCheck = true; //prime
 				break;
+			}			
+			else if (testComposite(b, n, k)) {
+				RabinMillerCheck = false; //composite
 			}
 		}
 		if (RabinMillerCheck) {
-			//System.out.println(n.bitLength());
 			assert n.bitLength() >= 512;
-			//System.out.println("Probably is prime");
 			return n;
 		}
 		return TWO;
@@ -185,30 +176,20 @@ public class RSAKeyGenerator {
 	private BigInteger generateBigIntInclusive(final BigInteger a, final BigInteger b) {
 		final Random rnd = new Random();
 		BigInteger x = new BigInteger(b.bitLength(), rnd);
-		while( !(x.compareTo(a) >= 0 && x.compareTo(b) <= 0) ) {
+		while(x.compareTo(a) < 0 || x.compareTo(b) > 0 ) {
 			//randomly generate until we hit one between the given intervals
 			//it might be better to use a long returned from a Random method.
 			x = new BigInteger(b.bitLength(), rnd); 
 		}
 		return x;
 	}
-	private boolean testComposite(final BigInteger a, final BigInteger d, 
-			final BigInteger n, final BigInteger s, final BigInteger m) {
-		assert n.subtract(m).equals(BigInteger.ONE);
-		BigInteger x  = a.modPow(d, n);
-		//System.out.println(x);
-		for (int r = 1; BigInteger.valueOf(r).compareTo(s.subtract(BigInteger.ONE)) < 0; r++) {
-			/*if (x.modPow(TWO.pow(r).multiply(d),  n).equals(m)) {
-				return false;
-			}*/
-			//System.out.println(r + ": x^2*i = " + x);
-			x = x.modPow(TWO, n);
-			if (x.equals(BigInteger.ONE)) {
-				return true;
-			}
-			if (x.equals(m)) {
+	private boolean testComposite(BigInteger b, final BigInteger n, 
+			final int k) {
+		for (int i = 0; i < k; i=i+1) {
+			if (b.equals(BigInteger.ONE.negate().mod(n))) {
 				return false;
 			}
+			b = b.pow(2);
 		}
 		return false;
 	}
