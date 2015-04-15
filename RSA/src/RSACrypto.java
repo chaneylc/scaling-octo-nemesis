@@ -2,7 +2,7 @@
 public class RSACrypto {
 	
 	public static void main(String[] args) {
-		final RSAKeyGenerator gen = new RSAKeyGenerator(1024);
+		final RSAKeyGenerator gen = new RSAKeyGenerator(2048);
 		final Key[] K = gen.getK();
 		final StringBuilder sb = new StringBuilder();
 		final String lineSep = System.getProperty("line.separator");

@@ -136,29 +136,30 @@ public class RSAKeyGenerator {
 			k = k + 1;
 		}
 		//System.out.println("2^" + k + "*" + m.toString());
-		boolean RabinMillerCheck = true;
 		//chance of failure is (1/4)^k where k is the number of rounds,
 		//we can make this really small be choosing a reasonable k.
-		for (int s = 0; s < 4000; s++) { //Rabin Miller tests
+		for (int s = 0; s < 42; s++) { //Rabin Miller tests
 			BigInteger a = generateBigIntInclusive(BigInteger.ONE, o);
 			while(composites.get(n).contains(a)) {
 				a = generateBigIntInclusive(BigInteger.ONE, o);
 			}
 			addPrimeEntry(n, a);
-			final BigInteger b = a.modPow(m, n);
+			BigInteger b = a.modPow(m, n);
 			if (b.equals(BigInteger.ONE.mod(n))) {
-				RabinMillerCheck = true; //prime
-				break;
+				return n; //n is prime
 			}			
-			else if (testComposite(b, n, k)) {
-				RabinMillerCheck = false; //composite
+			else {
+				for (int i = 0; i < k; i=i+1) {
+					if (b.equals(BigInteger.ONE.negate().mod(n))) {
+						return n; //n is prime
+					}
+					b = b.pow(2); //composite
+				}
+				//composite, try again
 			}
 		}
-		if (RabinMillerCheck) {
-			assert n.bitLength() >= 512;
-			return n;
-		}
-		return TWO;
+		return TWO; //this will be checked after return,
+					//bitLength(2) < 512 so RabinMiller will run again.
 	}
 	private BigInteger generateOddBigInt(final int bitLength) {
 		final Random rnd = new Random();
@@ -185,13 +186,7 @@ public class RSAKeyGenerator {
 	}
 	private boolean testComposite(BigInteger b, final BigInteger n, 
 			final int k) {
-		for (int i = 0; i < k; i=i+1) {
-			if (b.equals(BigInteger.ONE.negate().mod(n))) {
-				return false;
-			}
-			b = b.pow(2);
-		}
-		return false;
+		return true;
 	}
 	protected void addPrime(BigInteger n) {
 		composites.put(n, new ArrayList<BigInteger>());
@@ -200,8 +195,12 @@ public class RSAKeyGenerator {
 		composites.get(p).add(a);
 	}
 	private boolean testOdd(final BigInteger i) {
-		if (i.mod(TWO).equals(BigInteger.ZERO))	return false;
-		else return true;
+		if (i.mod(TWO).equals(BigInteger.ZERO))	{
+			return false;
+		}
+		else {
+			return true;
+		}
 	}
 	public void outputPQ(ProbablePrime p) {
 		final File f = new File("./PandQ.txt");
